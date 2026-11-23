@@ -33,7 +33,7 @@ reviews_app/            Unique customer reviews
   api/                  Review endpoints and platform statistics
 tests/                  Contract, permission, integrity and upload tests
 tools/                  Convention checker and isolated HTTP smoke test
-.github/workflows/      Checks, multi-platform build and optional GHCR publish
+.github/workflows/      Checks, multi-platform build and automatic GHCR publish
 ```
 
 Models describe data and constraints. Multi-record writes live in service functions. Each application owns its API routes, serializers and permissions. Serializers explicitly list fields. Generated migrations are committed.
@@ -236,6 +236,7 @@ Optional coverage: `coverage run manage.py test tests --settings=tests.settings`
 docker build -t coderr-backend:local .
 docker volume create coderr-data
 docker run --rm --name backend \
+  --network web-stack-proxy --network-alias backend \
   --read-only --tmpfs /tmp:rw,noexec,nosuid,size=128m \
   --cap-drop ALL --security-opt no-new-privileges \
   -p 127.0.0.1:8000:8000 -v coderr-data:/data \
@@ -243,17 +244,17 @@ docker run --rm --name backend \
   coderr-backend:local
 ```
 
-This command is a local HTTP example. For production, use DEBUG=false, provide a real secret through the deployment's secret mechanism, configure allowed hosts/CSRF origins, and terminate HTTPS at a trusted proxy. Do not expose the backend port publicly. The image runs as UID/GID 10001, not root. Ensure bind-mounted data is writable by that identity; a newly created named volume can inherit the image directory ownership. Keep `/data` persistent and `/tmp` writable while the root filesystem remains read-only.
+This command is a local HTTP example and assumes the existing `web-stack-proxy` network. For production, use DEBUG=false, provide a real secret through the deployment's secret mechanism, configure allowed hosts/CSRF origins, and terminate HTTPS at a trusted proxy. Do not expose the backend port publicly. The image runs as UID/GID 10001, not root. Ensure bind-mounted data is writable by that identity; a newly created named volume can inherit the image directory ownership. Keep `/data` persistent and `/tmp` writable while the root filesystem remains read-only.
 
 The entrypoint applies migrations and collects admin static files; it does not create admin/demo accounts. `/data/db.sqlite3`, `/data/media` and `/data/static` survive image replacement. Do not run simultaneous migration entrypoints against one SQLite file. Back up the database consistently and include media. Serve media/static from read-only mounts in the frontend web server. Mount no Docker socket or unrelated host paths. No privileged mode or additional Linux capabilities are required.
 
-The private frontend image provides Nginx on port 8080, routes `/api/` to a network service named `backend:8000`, and expects media/static read-only mounts. Public `/admin` and `/admin/` access is blocked; keep Django administration internal and do not expose an alternative admin route through Traefik. Production routing is frontend `/`, API `/api/`, images `/media/`. Keep private host-specific OMV Compose, Traefik, tunnel and network definitions outside this public repository. Deployment on the Raspberry Pi 5/OMV, Cloudflare, DNS and public HTTPS verification are separate work.
+The private frontend image provides Nginx on port 8080, routes `/api/` to a network service named `backend:8000`, and expects media/static read-only mounts. Public `/admin` and `/admin/` access is blocked; keep Django administration internal and do not expose an alternative admin route through Traefik. Production routing is frontend `/`, API `/api/`, images `/media/`. The deployment uses only the existing Docker network `web-stack-proxy`; attach the backend with network alias `backend` and the frontend to the same network. Do not create another application network. The intended domain is `coderr.skullrabbit.dev`; configure `DJANGO_ALLOWED_HOSTS=coderr.skullrabbit.dev` and the corresponding HTTPS CSRF origin for deployment. Keep private host-specific OMV Compose, Traefik, tunnel and network definitions outside this public repository. Deployment on the Raspberry Pi 5/OMV, Cloudflare, DNS and public HTTPS verification are separate work.
 
 ## GitHub Actions and GHCR
 
-`ci.yml` runs checks, tests, HTTP smoke and a non-publishing Docker build for `linux/amd64` and `linux/arm64` on pushes and pull requests. `publish.yml` is explicitly dispatched and reruns tests before publishing `ghcr.io/rigaho/coderr-backend` with `latest` and full `sha-<commit>` tags. Checkout has contents:read; publishing additionally needs packages:write via the repository's GITHUB_TOKEN. No personal token is embedded.
+`ci.yml` runs the existing checks once on pushes to `main` and pull requests. After the test job succeeds, a push to `main` automatically builds `linux/amd64` and `linux/arm64` and publishes `ghcr.io/rigaho/coderr-backend:latest` and `sha-<full commit SHA>`. Pull requests only build, without publishing. The former manual `publish.yml` is consolidated into `ci.yml`; no separate publish trigger or duplicate test run is needed. Only the publish job has packages:write, using GITHUB_TOKEN; all jobs have contents:read.
 
-Workflow files and images being prepared does not prove that CI or image builds have run. Check the Actions run for the exact commit and inspect the GHCR package/manifests after publication. Backend package visibility can be public because this repository contains only the independent backend and its dependencies. The separate frontend package must stay private; its workflow blocks publication unless the existing package's actual visibility is verified private. Repository privacy alone is insufficient.
+Configuration does not prove a successful remote run. Check Actions for the exact commit and inspect the GHCR manifests after the later push. The separate frontend workflow requires a private source repository, rejects an existing non-private package before uploading, permits a missing package to be created, and verifies package privacy afterward. GHCR creates new packages private by default ([GitHub documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)). Existing packages must grant their workflow repository access; no personal token is embedded.
 
 ## Limits and release checks
 

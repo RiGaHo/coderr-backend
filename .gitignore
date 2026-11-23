@@ -11,3 +11,13 @@ staticfiles/
 .coverage*
 htmlcov/
 .ruff_cache/
+venv/
+.pytest_cache/
+.mypy_cache/
+build/
+dist/
+*.egg-info/
+*.log
+*.tmp
+*.swp
+*~

@@ -9,7 +9,12 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && useradd --uid 10001 --gid coderr --no-create-home coderr \
     && mkdir -p /data/media /data/static \
     && chown -R coderr:coderr /data
-COPY --chown=coderr:coderr . .
+COPY --chown=coderr:coderr core/ ./core/
+COPY --chown=coderr:coderr users_app/ ./users_app/
+COPY --chown=coderr:coderr offers_app/ ./offers_app/
+COPY --chown=coderr:coderr orders_app/ ./orders_app/
+COPY --chown=coderr:coderr reviews_app/ ./reviews_app/
+COPY --chown=coderr:coderr manage.py docker-entrypoint.sh LICENSE ./
 RUN chmod +x /app/docker-entrypoint.sh
 USER 10001:10001
 EXPOSE 8000
