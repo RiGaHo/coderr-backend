@@ -247,7 +247,7 @@ This command is a local HTTP example. For production, use DEBUG=false, provide a
 
 The entrypoint applies migrations and collects admin static files; it does not create admin/demo accounts. `/data/db.sqlite3`, `/data/media` and `/data/static` survive image replacement. Do not run simultaneous migration entrypoints against one SQLite file. Back up the database consistently and include media. Serve media/static from read-only mounts in the frontend web server. Mount no Docker socket or unrelated host paths. No privileged mode or additional Linux capabilities are required.
 
-The private frontend image provides Nginx on port 8080, routes `/api/` and `/admin/` to a network service named `backend:8000`, and expects media/static read-only mounts. Production routing is frontend `/`, API `/api/`, images `/media/`. Keep private host-specific OMV Compose, Traefik, tunnel and network definitions outside this public repository. Deployment on the Raspberry Pi 5/OMV, Cloudflare, DNS and public HTTPS verification are separate work.
+The private frontend image provides Nginx on port 8080, routes `/api/` to a network service named `backend:8000`, and expects media/static read-only mounts. Public `/admin` and `/admin/` access is blocked; keep Django administration internal and do not expose an alternative admin route through Traefik. Production routing is frontend `/`, API `/api/`, images `/media/`. Keep private host-specific OMV Compose, Traefik, tunnel and network definitions outside this public repository. Deployment on the Raspberry Pi 5/OMV, Cloudflare, DNS and public HTTPS verification are separate work.
 
 ## GitHub Actions and GHCR
 
